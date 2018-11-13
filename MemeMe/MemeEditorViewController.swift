@@ -1,0 +1,176 @@
+//
+//  ViewController.swift
+//  MemeMe
+//
+//  Created by Saud Alhelali on 25/10/2018.
+//  Copyright © 2018 Saud. All rights reserved.
+//
+
+import UIKit
+
+class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UITextFieldDelegate {
+    
+    @IBOutlet weak var imagePickerView: UIImageView!
+    @IBOutlet weak var cameraButton: UIBarButtonItem!
+    @IBOutlet weak var topTextField: UITextField!
+    @IBOutlet weak var bottomTextField: UITextField!
+    @IBOutlet weak var shareButton: UIBarButtonItem!
+    @IBOutlet weak var cancelButton: UIBarButtonItem!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Do any additional setup after loading the view, typically from a nib.
+        initValues()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        subscribeToKeyboardNotifications()
+        navigationController?.delegate = self
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        unsubscribeFromKeyboardNotifications()
+    }
+    
+    func initValues() {
+        // Disable camera button when not available
+        cameraButton.isEnabled = UIImagePickerController.isSourceTypeAvailable(.camera)
+        
+        // Mark this class as delegate for text fields
+        topTextField.delegate = self
+        bottomTextField.delegate = self
+        
+        topTextField.text = "TOP"
+        bottomTextField.text = "BOTTOM"
+        
+        // Set text styling
+        let memeTextAttributes:[String: Any] = [
+           NSAttributedStringKey.foregroundColor.rawValue: UIColor.white,
+           NSAttributedStringKey.strokeColor.rawValue: UIColor.black,
+           NSAttributedStringKey.font.rawValue: UIFont(name: "Impact", size: 40)!,
+           NSAttributedStringKey.strokeWidth.rawValue: -5.0
+        ]
+        topTextField.defaultTextAttributes = memeTextAttributes
+        bottomTextField.defaultTextAttributes = memeTextAttributes
+        topTextField.textAlignment = .center
+        bottomTextField.textAlignment = .center
+        
+        // Set image to nil if image exists
+        imagePickerView.image = imagePickerView.image != nil ? nil : imagePickerView.image
+        
+        // Initially share button is disabled
+        shareButton.isEnabled = false
+    }
+    
+    // MARK: Actions from UI
+
+    @IBAction func pickAnImageFromAlbum(_ sender: Any) {
+        let pickerController = UIImagePickerController()
+        pickerController.delegate = self
+        pickerController.sourceType = .photoLibrary
+        present(pickerController, animated: true, completion: nil)
+    }
+    
+    @IBAction func pickAnImageFromCamera(_ sender: Any) {
+        let pickerController = UIImagePickerController()
+        pickerController.delegate = self
+        pickerController.sourceType = .camera
+        present(pickerController, animated: true, completion: nil)
+    }
+    
+    
+    @IBAction func shareButtonClicked(_ sender: Any) {
+        save()
+    }
+    
+    @IBAction func cancelButtonClicked(_ sender: Any) {
+        // Reset to default values
+        initValues()
+    }
+    
+    // MARK: Image specific functions
+    
+    @objc func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
+        if let image = info[UIImagePickerControllerOriginalImage] as? UIImage {
+            imagePickerView.image = image
+            shareButton.isEnabled = true
+            dismiss(animated: true, completion: nil)
+        }
+    }
+    
+    @objc func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        dismiss(animated: true, completion: nil)
+    }
+    
+    func save() {
+        // Create the meme
+        let meme = Meme(topText: topTextField.text!, bottomText: bottomTextField.text!, originalImage: imagePickerView.image!, memedImage: generateMemedImage())
+        
+        let activityViewController = UIActivityViewController(activityItems: [meme.memedImage], applicationActivities: nil)
+        activityViewController.popoverPresentationController?.sourceView = self.view
+        
+        self.present(activityViewController, animated: true, completion: nil)
+    }
+    
+    func generateMemedImage() -> UIImage {
+        
+        // Render view to an image
+        UIGraphicsBeginImageContext(imagePickerView.bounds.size)
+        view.drawHierarchy(in: imagePickerView.bounds, afterScreenUpdates: false)
+        let memedImage:UIImage = UIGraphicsGetImageFromCurrentImageContext()!
+        UIGraphicsEndImageContext()
+
+        return memedImage
+    }
+    
+    
+    // MARK: Keyboard functions
+    
+    @objc func keyboardWillShow(_ notification: Notification) {
+        if bottomTextField.isFirstResponder {
+            view.frame.origin.y = -getKeyboardHeight(notification)
+        }
+    }
+    
+    @objc func keyboardWillHide(_ notification: Notification) {
+        if bottomTextField.isFirstResponder {
+            view.frame.origin.y = 0
+        }
+        
+    }
+    
+    func getKeyboardHeight(_ notification: Notification) -> CGFloat {
+        let userInfo = notification.userInfo
+        let keyboardSize = userInfo![UIKeyboardFrameEndUserInfoKey] as! NSValue // of CGRect
+        return keyboardSize.cgRectValue.height
+    }
+    
+    func subscribeToKeyboardNotifications() {
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: .UIKeyboardWillShow, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: .UIKeyboardWillHide, object: nil)
+    }
+    
+    func unsubscribeFromKeyboardNotifications() {
+        NotificationCenter.default.removeObserver(self, name: .UIKeyboardWillShow, object: nil)
+        NotificationCenter.default.removeObserver(self, name: .UIKeyboardWillHide, object: nil)
+    }
+    
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        // Only update text values when
+        // values are not the default
+        if let text = textField.text {
+            if text == "TOP" || textField.text == "BOTTOM" {
+                textField.text = ""
+            }
+        }
+    }
+    
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        self.view.endEditing(true)
+        return true
+    }
+    
+}
+
