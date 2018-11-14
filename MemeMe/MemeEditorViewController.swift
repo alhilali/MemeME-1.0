@@ -67,16 +67,18 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
     // MARK: Actions from UI
 
     @IBAction func pickAnImageFromAlbum(_ sender: Any) {
-        let pickerController = UIImagePickerController()
-        pickerController.delegate = self
-        pickerController.sourceType = .photoLibrary
-        present(pickerController, animated: true, completion: nil)
+        pickAnImageFrom(source: .photoLibrary)
+
     }
     
     @IBAction func pickAnImageFromCamera(_ sender: Any) {
+        pickAnImageFrom(source: .camera)
+    }
+    
+    func pickAnImageFrom(source: UIImagePickerControllerSourceType) {
         let pickerController = UIImagePickerController()
         pickerController.delegate = self
-        pickerController.sourceType = .camera
+        pickerController.sourceType = source
         present(pickerController, animated: true, completion: nil)
     }
     
@@ -112,15 +114,31 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
         activityViewController.popoverPresentationController?.sourceView = self.view
         
         self.present(activityViewController, animated: true, completion: nil)
+        
+        // Save new meme to global array
+        activityViewController.completionWithItemsHandler = {
+            (activity, completed, items, error) in
+            if completed {
+                let appDelegate = UIApplication.shared.delegate as! AppDelegate
+                appDelegate.memes.append(meme)
+                print(appDelegate.memes)
+            }
+        }
     }
     
     func generateMemedImage() -> UIImage {
+        
+        // Hide bars
+        toolbarState(hiddenBar: true)
         
         // Render view to an image
         UIGraphicsBeginImageContext(imagePickerView.bounds.size)
         view.drawHierarchy(in: imagePickerView.bounds, afterScreenUpdates: false)
         let memedImage:UIImage = UIGraphicsGetImageFromCurrentImageContext()!
         UIGraphicsEndImageContext()
+        
+        // Show bars
+        toolbarState(hiddenBar: false)
 
         return memedImage
     }
@@ -170,6 +188,12 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         self.view.endEditing(true)
         return true
+    }
+    
+    // MARK: Helper methods
+    func toolbarState(hiddenBar: Bool){
+        self.navigationController?.isToolbarHidden = hiddenBar
+    self.navigationController?.isNavigationBarHidden = hiddenBar
     }
     
 }
